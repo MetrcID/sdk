@@ -1,3 +1,4 @@
-# Runtime dependencies for the retailid package.
+# Optional dependency for the Retail ID API client (retailid.api); same as the
+# "api" extra: pip install ".[api]". QR encode/decode needs no dependencies.
 # Development tools: pip install -e ".[dev]"
 requests>=2.31,<3

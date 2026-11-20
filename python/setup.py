@@ -39,11 +39,16 @@ setup(
     packages=find_packages(where="src"),
     package_data={"retailid": ["py.typed"]},
     python_requires=">=3.9",
-    install_requires=[
-        "requests>=2.31,<3",
-    ],
+    # No required runtime dependencies: QR encode/decode uses only the standard
+    # library. The Retail ID API client (retailid.api) needs requests, which is
+    # imported lazily and installed with the "api" extra.
+    install_requires=[],
     extras_require={
+        "api": [
+            "requests>=2.31,<3",
+        ],
         "dev": [
+            "requests>=2.31,<3",
             "pytest>=7.0",
             "pytest-cov>=4.0",
             "mypy>=1.0",

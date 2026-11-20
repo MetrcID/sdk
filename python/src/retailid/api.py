@@ -13,7 +13,9 @@ Wraps the endpoints described in the Retail ID API Integration Guide:
 Every request is authenticated with HTTP Basic auth using the vendor API key
 as the username and the user API key as the password. Keys are never logged.
 
-HTTP is handled by `requests <https://requests.readthedocs.io/>`_. Errors live
+HTTP is handled by `requests <https://requests.readthedocs.io/>`_, an optional
+dependency installed with ``pip install "retailid[api]"``. ``import retailid``
+does not load this module until an API name is used. Errors live
 in :mod:`retailid.errors`; credentials can be loaded from ``config.json`` with
 :meth:`RetailIdClient.from_config`.
 """
@@ -28,8 +30,14 @@ from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
-import requests
-from requests.auth import HTTPBasicAuth
+try:
+    import requests
+    from requests.auth import HTTPBasicAuth
+except ImportError as e:  # pragma: no cover - exercised in a subprocess test
+    raise ImportError(
+        "The Retail ID API client requires the 'requests' package. "
+        'Install it with: pip install "retailid[api]"'
+    ) from e
 
 from .config import PathLike, RetailIdConfig, load_config
 from .errors import (
