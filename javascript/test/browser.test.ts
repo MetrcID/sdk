@@ -198,19 +198,19 @@ describe('RetailId Browser Bundle', () => {
 
   // Golden vectors at the varint byte-length boundaries (1 -> 2 -> 3 -> 4 bytes).
   // Generated with the SDK's own encoder (getShortUrl) for batch
-  // abcdef012345670000027190 on d.1a4.com, and cross-checked against an independent
+  // abcdef012345670000027190 on the default domain 1a4.com, and cross-checked against an independent
   // big-endian Base36 / URL-safe Base64 calculation. The Base64 codes for 248, 249,
   // 16383 and 2097151 contain '-' or '_' (URL-safe Base64's replacements for '+' and '/').
   const boundaryVectors = [
-    { index: 1, bytes: 1, base36: 'HTTPS://D.1A4.COM/10NOIEYKAJDG6CF0EXGJL', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQAQ' },
-    { index: 127, bytes: 1, base36: 'HTTPS://D.1A4.COM/10NOIEYKAJDG6CF0EXGN3', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQfw' },
-    { index: 128, bytes: 2, base36: 'HTTPS://D.1A4.COM/78OEAYDSAXRN14AQY5YCCH', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQgAE' },
-    { index: 248, bytes: 2, base36: 'HTTPS://D.1A4.COM/78OEAYDSAXRN14AQY5Z01T', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQ-AE' },
-    { index: 249, bytes: 2, base36: 'HTTPS://D.1A4.COM/78OEAYDSAXRN14AQY5Z08X', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQ-QE' },
-    { index: 16383, bytes: 2, base36: 'HTTPS://D.1A4.COM/78OEAYDSAXRN14AQY5Z1J3', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQ_38' },
-    { index: 16384, bytes: 3, base36: 'HTTPS://D.1A4.COM/1FHPHPWI19S4JRYKFMYC8HS1', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQgIAB' },
-    { index: 2097151, bytes: 3, base36: 'HTTPS://D.1A4.COM/1FHPHPWI19S4JRYKFMYH7L33', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQ__9_' },
-    { index: 2097152, bytes: 4, base36: 'HTTPS://D.1A4.COM/A65XA07491K0CMTTB7870F4E9', base64: 'https://d.1a4.com/q83vASNFZwAAAnGQgICAAQ' },
+    { index: 1, bytes: 1, base36: 'HTTPS://1A4.COM/10NOIEYKAJDG6CF0EXGJL', base64: 'https://1a4.com/q83vASNFZwAAAnGQAQ' },
+    { index: 127, bytes: 1, base36: 'HTTPS://1A4.COM/10NOIEYKAJDG6CF0EXGN3', base64: 'https://1a4.com/q83vASNFZwAAAnGQfw' },
+    { index: 128, bytes: 2, base36: 'HTTPS://1A4.COM/78OEAYDSAXRN14AQY5YCCH', base64: 'https://1a4.com/q83vASNFZwAAAnGQgAE' },
+    { index: 248, bytes: 2, base36: 'HTTPS://1A4.COM/78OEAYDSAXRN14AQY5Z01T', base64: 'https://1a4.com/q83vASNFZwAAAnGQ-AE' },
+    { index: 249, bytes: 2, base36: 'HTTPS://1A4.COM/78OEAYDSAXRN14AQY5Z08X', base64: 'https://1a4.com/q83vASNFZwAAAnGQ-QE' },
+    { index: 16383, bytes: 2, base36: 'HTTPS://1A4.COM/78OEAYDSAXRN14AQY5Z1J3', base64: 'https://1a4.com/q83vASNFZwAAAnGQ_38' },
+    { index: 16384, bytes: 3, base36: 'HTTPS://1A4.COM/1FHPHPWI19S4JRYKFMYC8HS1', base64: 'https://1a4.com/q83vASNFZwAAAnGQgIAB' },
+    { index: 2097151, bytes: 3, base36: 'HTTPS://1A4.COM/1FHPHPWI19S4JRYKFMYH7L33', base64: 'https://1a4.com/q83vASNFZwAAAnGQ__9_' },
+    { index: 2097152, bytes: 4, base36: 'HTTPS://1A4.COM/A65XA07491K0CMTTB7870F4E9', base64: 'https://1a4.com/q83vASNFZwAAAnGQgICAAQ' },
   ];
 
   describe('Varint boundary golden vectors', () => {
@@ -231,8 +231,8 @@ describe('RetailId Browser Bundle', () => {
 
       it(`should encode index ${index} to the exact Base36 and Base64 URLs`, () => {
         const batchId = new RetailId.ObjectId(batch);
-        expect(RetailId.getShortUrl(batchId, index, { domain: 'd.1a4.com' })).toBe(base36);
-        expect(RetailId.getShortUrl(batchId, index, { domain: 'd.1a4.com', base64: true })).toBe(base64);
+        expect(RetailId.getShortUrl(batchId, index)).toBe(base36);
+        expect(RetailId.getShortUrl(batchId, index, { base64: true })).toBe(base64);
       });
     });
   });
@@ -269,11 +269,11 @@ describe('RetailId Browser Bundle', () => {
   describe('Invalid input and strict-mode validation', () => {
     // Batch ffffffffffffffffffffffff has no RetailID prefix and an invalid ObjectId
     // timestamp. Its Base64 code (________________AQ) contains only '_' and URL-safe characters.
-    const noPrefixBase36 = 'HTTPS://D.1A4.COM/1IMEU2DGGAAXHSNBHYV41';
-    const noPrefixBase64 = 'https://d.1a4.com/________________AQ';
+    const noPrefixBase36 = 'HTTPS://1A4.COM/1IMEU2DGGAAXHSNBHYV41';
+    const noPrefixBase64 = 'https://1a4.com/________________AQ';
     // Batch 507f1f77bcf86cd799439011 has no RetailID prefix but a valid timestamp.
-    const mongoBase36 = 'HTTPS://D.1A4.COM/H6BG9PEO99FH0S8ZWK5D';
-    const mongoBase64 = 'https://d.1a4.com/UH8fd7z4bNeZQ5ARAQ';
+    const mongoBase36 = 'HTTPS://1A4.COM/H6BG9PEO99FH0S8ZWK5D';
+    const mongoBase64 = 'https://1a4.com/UH8fd7z4bNeZQ5ARAQ';
 
     it('should reject unrecognizable input with "Unrecognized URL"', () => {
       for (const input of ['invalid_garbage', 'invalid-garbage', 'https://1a4.com/!!!', 'not a url at all']) {
