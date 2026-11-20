@@ -7,14 +7,29 @@ Encode and decode RetailID QR labels to enable product traceability and supply c
 ## Installation
 
 ```bash
-pip install retailid
+pip install retailid          # QR encode/decode only: no dependencies
+pip install "retailid[api]"   # also installs requests for the Retail ID API client
 ```
 
 Or with [uv](https://github.com/astral-sh/uv):
 
 ```bash
-uv pip install retailid
+uv pip install "retailid[api]"
 ```
+
+From a checkout of this repository:
+
+```bash
+pip install .           # install the package via setup.py
+pip install ".[api]"    # with requests for the API client
+```
+
+`retailid` has no required runtime dependencies. QR encode/decode, `load_config` and the error
+classes use only the standard library. [`requests`](https://requests.readthedocs.io/) is an
+optional dependency used only by the Retail ID API client (`retailid.api`): it is imported
+lazily, the first time you use `RetailIdClient`, `short_code_from_url` or one of the API
+response models, so `import retailid` works without it. Using an API name without `requests`
+installed raises `ImportError` telling you to install `retailid[api]`.
 
 ## Quick Start
 
@@ -100,6 +115,136 @@ get_short_url(batch_id: ObjectId | str, index: int,
               domain: str = None, base64: bool = False) -> str
 ```
 
+## Retail ID API Client
+
+`RetailIdClient` calls the Metrc Retail ID endpoints (generate, info, receive, associate,
+merge, sales, catalog) using a [`requests.Session`](https://requests.readthedocs.io/). It needs
+the optional `requests` package: `pip install "retailid[api]"`. Requests
+use HTTP Basic auth: the vendor API key is the username and the user API key is the password.
+Keep both keys on your server; the client never logs them.
+
+### Configuration (`config.json`)
+
+Put the API keys in a `config.json` instead of in source code. Start from the template:
+
+```bash
+cp config.example.json config.json
+```
+
+```json
+{
+    "vendor_api_key": "YOUR_VENDOR_API_KEY",
+    "user_api_key": "YOUR_USER_API_KEY",
+    "state_code": "md",
+    "base_url": null,
+    "timeout": 30,
+    "max_retries": 3,
+    "backoff_base": 1.0
+}
+```
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `vendor_api_key` | yes | Vendor (software) API key |
+| `user_api_key` | yes | API key of the Metrc user making requests |
+| `state_code` | one of | Market code, e.g. `"md"` → `https://api-md.metrc.com` |
+| `base_url` | one of | Full base URL; overrides `state_code` (use for the Sandbox) |
+| `timeout` | no | Per-request timeout in seconds (default 30) |
+| `max_retries` | no | Retries for retryable responses (default 3) |
+| `backoff_base` | no | Base backoff delay in seconds (default 1.0) |
+
+`config.json` is listed in `.gitignore`; never commit real keys. `RetailIdClient.from_config()`
+reads the path you pass, else the file named by the `RETAILID_CONFIG` environment variable,
+else `./config.json`. A missing or incomplete file raises `RetailIdConfigError`.
+
+```python
+from retailid import RetailIdClient, load_config
+
+client = RetailIdClient.from_config()                     # $RETAILID_CONFIG or ./config.json
+client = RetailIdClient.from_config("/etc/metrc/config.json")
+client = RetailIdClient.from_config(load_config(), timeout=10)  # keyword args override the file
+
+# Keys can still be passed directly, e.g. from a secrets manager:
+client = RetailIdClient(vendor_key, user_key, state_code="md")
+```
+
+Pass `session=` to supply your own `requests.Session` (proxies, custom adapters, certificates).
+The client closes only sessions it created; use it as a context manager or call `close()`:
+
+```python
+with RetailIdClient.from_config() as client:
+    client.get_facilities()
+```
+
+### Usage
+
+```python
+from retailid import RetailIdClient, Association
+
+client = RetailIdClient.from_config()
+
+license_number = "837-XYZ"
+label = "1A4060300007777000000001"
+
+# Label printing
+client.get_allotment(license_number)                 # New York only
+issuance = client.generate(license_number, label, quantity=3)
+info = client.get_package_info(license_number, label)  # qr_count, issuances, ...
+received = client.receive(license_number, label)
+for url in received.eaches:
+    ...  # print one label per URL, exactly as returned
+
+# Receiving
+result = client.receive_by_qr(license_number, "https://1a4.com/ZScU6dsbUk98nsJEAA")
+if result.requires_verification:
+    client.associate(license_number, [Association(label, scanned_qr_urls)])
+    result = client.receive(license_number, label)  # repeat until requires_verification is False
+
+# Package Merge: target first, source second
+client.merge(license_number, target_package_label, source_package_label)
+
+# Sales: build the full record from the market's Sales docs, add QrCodes per transaction
+client.post_sales_receipts(license_number, [receipt])
+client.post_sales(license_number, [delivery], endpoint="deliveries_retailer")
+
+# Catalog
+for product in client.iter_global_products(brand_id=77):
+    ...
+client.get_global_product(5)
+```
+
+| Method | Endpoint |
+|--------|----------|
+| `get_facilities()` | `GET /facilities/v2/` |
+| `get_allotment(license)` | `GET /retailid/v2/allotment` |
+| `generate(license, label, quantity)` | `POST /retailid/v2/generate` |
+| `get_packages_info(license, labels)` / `get_package_info` | `POST /retailid/v2/packages/info` |
+| `receive(license, label)` | `GET /retailid/v2/receive/{label}` |
+| `receive_by_qr(license, qr_url_or_code)` | `GET /retailid/v2/receive/qr/{shortCode}` |
+| `associate(license, associations)` / `associate_package` | `POST /retailid/v2/associate` |
+| `merge(license, target, source)` | `POST /retailid/v2/merge` |
+| `post_sales(license, records, endpoint=...)` / `post_sales_receipts` | `POST /sales/v2/receipts`, `/deliveries`, `/deliveries/retailer`, `/deliveries/retailer/sale` |
+| `get_available_tags(license)` | `GET /tags/v2/package/available` |
+| `get_package(license, id_or_label)` | `GET /packages/v2/{id}` |
+| `iter_global_products(brand_id)` / `get_global_products` | `GET /globalproducts/v2?brandId=` (all pages) |
+| `get_global_product(id)` | `GET /globalproducts/v2/{id}` |
+
+### Errors, retries, and limits
+
+- Errors are defined in `retailid.errors` and re-exported from `retailid`. Non-2xx responses
+  raise a `RetailIdApiError` subclass: `BadRequestError` (400), `AuthenticationError` (401),
+  `PermissionDeniedError` (403), `NotFoundError` (404), `ConflictError` (409),
+  `UnprocessableError` (422), `RateLimitError` (429, with `retry_after`), `ServerError` (5xx).
+  Each carries `status_code`, `message`, `method`, `path`, and the decoded `body`.
+  `retailid.errors.error_for_status()` builds the matching error from a status and payload.
+- 429 is retried after the `Retry-After` delay (or an increasing backoff). Timeouts and 5xx
+  are retried only for reads (GET and `packages/info`).
+- Calls that change data (`generate`, `associate`, `merge`, sales) are never retried
+  automatically. A timeout (`requests.Timeout`) raises `RetailIdTimeoutError`: check the current state with
+  `get_packages_info` or `receive` before sending again.
+- List requests are capped at 10 records. `get_packages_info` splits larger lists for you;
+  `associate` and `post_sales` raise `ValueError` instead, so you control each change.
+
 ## Backwards Compatibility
 
 For compatibility with the original `rid.py`, the `RetailId` class with static methods is also available:
@@ -132,8 +277,24 @@ RetailID supports two URL formats:
 
 ## Development
 
+Packaging metadata and dependencies are in `setup.py` (built with setuptools via
+`pyproject.toml`, which also holds the pytest/mypy/ruff config). `install_requires` is empty;
+`requests` is in the `api` extra. `requirements.txt` lists `requests` for the API client; keep
+it in sync with the `api` extra in `setup.py`. Keep `retailid/__init__.py` free of top-level
+imports of `retailid.api` or `requests`: API names are loaded lazily through the module
+`__getattr__`, and `tests/test_lazy_import.py` checks that `import retailid` works without
+`requests`.
+
+```text
+src/retailid/
+    __init__.py   QR encode/decode, public exports (API names loaded lazily)
+    api.py        RetailIdClient (requests-based) and response models
+    config.py     config.json loading (RetailIdConfig, load_config)
+    errors.py     RetailIdApiError hierarchy, RetailIdTimeoutError, RetailIdConfigError
+```
+
 ```bash
-# Install dev dependencies
+# Install the package in editable mode with dev dependencies
 pip install -e ".[dev]"
 
 # Run tests

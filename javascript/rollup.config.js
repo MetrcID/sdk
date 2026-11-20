@@ -23,7 +23,7 @@ const browserConfig = {
   plugins: [
     resolve({ browser: true }),
     commonjs(),
-    typescript({ tsconfig: './tsconfig.json' }),
+    typescript({ tsconfig: './tsconfig.build.json' }),
     terserPlugin,
   ],
 };
@@ -40,7 +40,7 @@ const esmConfig = {
   plugins: [
     resolve({ preferBuiltins: true }),
     commonjs(),
-    typescript({ tsconfig: './tsconfig.json', declaration: false }),
+    typescript({ tsconfig: './tsconfig.build.json', declaration: false }),
   ],
 };
 
@@ -56,8 +56,36 @@ const cjsConfig = {
   plugins: [
     resolve({ preferBuiltins: true }),
     commonjs(),
-    typescript({ tsconfig: './tsconfig.json', declaration: false }),
+    typescript({ tsconfig: './tsconfig.build.json', declaration: false }),
   ],
 };
 
-export default [browserConfig, esmConfig, cjsConfig];
+// Retail ID API client: @metrc/retailid/api and @metrc/retailid/node.
+// Server-side only, so these are NOT part of the browser IIFE above. Both
+// entries are built together so node/index imports the api/index chunk
+// instead of inlining a second copy (one class identity across entry points).
+const apiConfig = (format, extension) => ({
+  input: {
+    'api/index': 'src/api/index.ts',
+    'node/index': 'src/node/index.ts',
+  },
+  external: (id) => id.startsWith('node:'),
+  output: {
+    dir: 'dist',
+    format,
+    exports: 'named',
+    sourcemap: true,
+    entryFileNames: `[name].${extension}`,
+    chunkFileNames: `api/chunk-[hash].${extension}`,
+  },
+  plugins: [
+    typescript({
+      tsconfig: './tsconfig.api.json',
+      declaration: false,
+      declarationMap: false,
+      outDir: 'dist',
+    }),
+  ],
+});
+
+export default [browserConfig, esmConfig, cjsConfig, apiConfig('es', 'js'), apiConfig('cjs', 'cjs')];

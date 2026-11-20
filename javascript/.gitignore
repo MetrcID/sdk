@@ -1,5 +1,8 @@
 node_modules
-package-lock.json
 /dist
 /demo-local.html
 /publish.sh
+
+# Retail ID API credentials (copy config.example.json)
+config.json
+/coverage

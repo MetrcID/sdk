@@ -13,7 +13,64 @@ import os
 import re
 import struct
 from datetime import datetime
-from typing import Optional, Union
+from typing import TYPE_CHECKING, Any, Optional, Union
+
+from .config import RetailIdConfig, load_config
+from .errors import (
+    AuthenticationError,
+    BadRequestError,
+    ConflictError,
+    NotFoundError,
+    PermissionDeniedError,
+    RateLimitError,
+    RetailIdApiError,
+    RetailIdConfigError,
+    RetailIdTimeoutError,
+    ServerError,
+    UnprocessableError,
+)
+
+# The Retail ID API client (retailid.api) needs the optional ``requests``
+# package, so it is imported lazily on first attribute access (PEP 562). QR
+# encode/decode, config loading and the error classes need only the standard
+# library: ``import retailid`` works without ``requests`` installed.
+if TYPE_CHECKING:
+    from .api import (
+        Allotment,
+        Association,
+        GenerateResult,
+        Issuance,
+        PackageInfo,
+        ReceiveResult,
+        RetailIdClient,
+        short_code_from_url,
+    )
+
+_LAZY_API_NAMES = frozenset({
+    "Allotment",
+    "Association",
+    "GenerateResult",
+    "Issuance",
+    "PackageInfo",
+    "ReceiveResult",
+    "RetailIdClient",
+    "short_code_from_url",
+})
+
+
+def __getattr__(name: str) -> Any:
+    if name in _LAZY_API_NAMES:
+        from . import api
+
+        value = getattr(api, name)
+        globals()[name] = value  # cache so later lookups skip __getattr__
+        return value
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _LAZY_API_NAMES)
+
 
 __version__ = "0.10.0"
 __all__ = [
@@ -26,6 +83,29 @@ __all__ = [
     "encode_url64",
     "decode_url64",
     "get_short_url",
+    # Retail ID API client
+    "RetailIdClient",
+    "Association",
+    "Allotment",
+    "GenerateResult",
+    "Issuance",
+    "PackageInfo",
+    "ReceiveResult",
+    "RetailIdConfig",
+    "load_config",
+    # Errors (retailid.errors)
+    "RetailIdApiError",
+    "BadRequestError",
+    "AuthenticationError",
+    "PermissionDeniedError",
+    "NotFoundError",
+    "ConflictError",
+    "UnprocessableError",
+    "RateLimitError",
+    "ServerError",
+    "RetailIdTimeoutError",
+    "RetailIdConfigError",
+    "short_code_from_url",
 ]
 
 # Known RetailID prefixes

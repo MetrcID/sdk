@@ -118,7 +118,10 @@ Works in Node.js and browsers. Provides TypeScript definitions.
 pip install retailid
 ```
 
-Requires Python 3.9+. Zero production dependencies.
+Requires Python 3.9+. No required runtime dependencies: QR encode/decode uses only the standard
+library. The Retail ID API client needs `requests`, which is imported lazily and installed with
+`pip install "retailid[api]"`. API keys are read from a
+`config.json` — see the [Python SDK README](./python/README.md#configuration-configjson).
 
 ### Java
 
@@ -132,7 +135,9 @@ Add to your `pom.xml`:
 </dependency>
 ```
 
-Requires Java 11+. Zero production dependencies.
+Requires Java 11+. Zero production dependencies, including the Retail ID API client
+(`com.retailid.api`), which reads API keys from a `config.json` — see the
+[Java SDK README](./java/README.md#configuration-configjson).
 
 ## API Reference
 
