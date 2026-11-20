@@ -7,24 +7,29 @@ Encode and decode RetailID QR labels to enable product traceability and supply c
 ## Installation
 
 ```bash
-pip install retailid
+pip install retailid          # QR encode/decode only: no dependencies
+pip install "retailid[api]"   # also installs requests for the Retail ID API client
 ```
 
 Or with [uv](https://github.com/astral-sh/uv):
 
 ```bash
-uv pip install retailid
+uv pip install "retailid[api]"
 ```
 
 From a checkout of this repository:
 
 ```bash
-pip install -r requirements.txt   # runtime dependencies only (requests)
-pip install .                     # install the package via setup.py
+pip install .           # install the package via setup.py
+pip install ".[api]"    # with requests for the API client
 ```
 
-The only runtime dependency is [`requests`](https://requests.readthedocs.io/), used by the
-Retail ID API client. The QR encode/decode functions use only the standard library.
+`retailid` has no required runtime dependencies. QR encode/decode, `load_config` and the error
+classes use only the standard library. [`requests`](https://requests.readthedocs.io/) is an
+optional dependency used only by the Retail ID API client (`retailid.api`): it is imported
+lazily, the first time you use `RetailIdClient`, `short_code_from_url` or one of the API
+response models, so `import retailid` works without it. Using an API name without `requests`
+installed raises `ImportError` telling you to install `retailid[api]`.
 
 ## Quick Start
 
@@ -113,7 +118,8 @@ get_short_url(batch_id: ObjectId | str, index: int,
 ## Retail ID API Client
 
 `RetailIdClient` calls the Metrc Retail ID endpoints (generate, info, receive, associate,
-merge, sales, catalog) using a [`requests.Session`](https://requests.readthedocs.io/). Requests
+merge, sales, catalog) using a [`requests.Session`](https://requests.readthedocs.io/). It needs
+the optional `requests` package: `pip install "retailid[api]"`. Requests
 use HTTP Basic auth: the vendor API key is the username and the user API key is the password.
 Keep both keys on your server; the client never logs them.
 
@@ -272,12 +278,16 @@ RetailID supports two URL formats:
 ## Development
 
 Packaging metadata and dependencies are in `setup.py` (built with setuptools via
-`pyproject.toml`, which also holds the pytest/mypy/ruff config). `requirements.txt` lists the
-runtime dependencies; keep it in sync with `install_requires` in `setup.py`.
+`pyproject.toml`, which also holds the pytest/mypy/ruff config). `install_requires` is empty;
+`requests` is in the `api` extra. `requirements.txt` lists `requests` for the API client; keep
+it in sync with the `api` extra in `setup.py`. Keep `retailid/__init__.py` free of top-level
+imports of `retailid.api` or `requests`: API names are loaded lazily through the module
+`__getattr__`, and `tests/test_lazy_import.py` checks that `import retailid` works without
+`requests`.
 
 ```text
 src/retailid/
-    __init__.py   QR encode/decode, public exports
+    __init__.py   QR encode/decode, public exports (API names loaded lazily)
     api.py        RetailIdClient (requests-based) and response models
     config.py     config.json loading (RetailIdConfig, load_config)
     errors.py     RetailIdApiError hierarchy, RetailIdTimeoutError, RetailIdConfigError
